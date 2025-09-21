@@ -1,12 +1,3 @@
-# app.py
-"""
-Roamio AI Trip Planner (Python 3.13 + Gemini 1.5 Flash)
-Features:
-- Home page with logo & background
-- Plan a trip page
-- Itinerary with Google Maps images & clickable links
-"""
-
 import os
 import json
 import time
@@ -14,19 +5,15 @@ from typing import Optional
 import streamlit as st
 import requests
 import google.generativeai as genai
-import re  # <-- Added for location extraction
+import re
 
-# ----------------- CONFIG -----------------
-GOOGLE_API_KEY = "AIzaSyAU0P4W-8F8ZkCbS8f-ilCccrOiVvvi3fM" #os.getenv("GOOGLE_API_KEY")  # Gemini + Places
+GOOGLE_API_KEY = "AIzaSyAU0P4W-8F8ZkCbS8f-ilCccrOiVvvi3fM" 
 TRIPS_FILE = "saved_trips.json"
 
-# ----------------- GEMINI SETUP -----------------
 GEMINI_MODEL: Optional[genai.GenerativeModel] = None
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
     GEMINI_MODEL = genai.GenerativeModel("gemini-1.5-flash")
-
-# ----------------- UTILS -----------------
 
 def ensure_saved_trips_file() -> None:
     if not os.path.exists(TRIPS_FILE):
@@ -94,13 +81,9 @@ def build_itinerary_prompt(destination: str, days: int, budget: str, pax: str, i
         "Add a packing tip for local climate. Keep it concise and friendly."
     )
 
-# ----------- NEW LOCATION EXTRACTION & DETAILS FUNCTIONS -----------
 
 def extract_locations_from_itinerary(itinerary_text: str) -> list[str]:
-    """
-    Extracts suggested places and hotels from the itinerary text.
-    Looks for lines starting with 'Visit', 'Stay at', 'Hotel', etc.
-    """
+
     locations = set()
     for line in itinerary_text.split('\n'):
         match = re.search(r"(Visit|Stay at|Hotel|Restaurant|Explore|Check-in at)\s+([A-Za-z0-9 ,'-]+)", line)
@@ -111,9 +94,7 @@ def extract_locations_from_itinerary(itinerary_text: str) -> list[str]:
     return list(locations)
 
 def fetch_place_details(name: str, destination: str) -> Optional[dict]:
-    """
-    Fetches place details from Google Places API by name and destination.
-    """
+
     url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
     query = f"{name} in {destination}"
     params = {"query": query, "key": GOOGLE_API_KEY}
@@ -143,14 +124,11 @@ def fetch_place_details(name: str, destination: str) -> Optional[dict]:
         st.warning(f"Google Places error: {e}")
     return None
 
-# ----------------- STREAMLIT APP -----------------
 st.set_page_config(page_title="Roamio", layout="wide")
 
-# ----------------- SIDEBAR NAV -----------------
 st.sidebar.title("Roamio 🧭")
 page = st.sidebar.radio("Navigate", ["Home", "Plan a Trip", "Saved Trips"])
 
-# ----------------- HOME PAGE -----------------
 if page == "Home":
     st.markdown(
         """
@@ -172,7 +150,7 @@ if page == "Home":
         </style>
         <div class="bg">
             <div class="centered">
-                <img src="https://raw.githubusercontent.com/yourusername/yourrepo/main/Assets/Logo.png" class="logo">
+                <img src="https://github.com/AnkithSanga/Roamio/blob/main/Assets/Logo.png?raw=true" class="logo">
                 <h1>Welcome to Roamio</h1>
                 <p>Your AI-powered travel planner</p>
             </div>
@@ -185,7 +163,6 @@ if page == "Home":
         unsafe_allow_html=True
     )
 
-# ----------------- PLAN A TRIP -----------------
 elif page == "Plan a Trip":
 
     st.title("Plan Your Trip 🗺️")
@@ -223,16 +200,13 @@ elif page == "Plan a Trip":
                 "generated_at": time.time(),
                 "itinerary_text": ai_text
             }
-            # Fetch top 6 places automatically
             st.session_state["places"] = fetch_places_google(dest, count=6)
 
 
-    # Show itinerary if generated
     if "latest_itinerary" in st.session_state:
         it = st.session_state["latest_itinerary"]
         st.subheader(f"{it['from']} → {it['destination']} — {it['days']} Day Trip | {it['budget']} | {it['pax']} travelers")
 
-        # Hotels / Top Places (Card style)
         if st.session_state.get("places"):
             st.markdown("### Top Places to Visit 📍")
             places = st.session_state["places"]
@@ -241,7 +215,6 @@ elif page == "Plan a Trip":
                 for j, place in enumerate(places[i:i+3]):
                     with cols[j]:
                         if place.get("photo"):
-                            # Clickable image opens Google Maps
                             st.markdown(
                                 f'<a href="{place["maps_url"]}" target="_blank">'
                                 f'<img src="{place["photo"]}" style="width:100%; border-radius:10px;">'
@@ -254,7 +227,6 @@ elif page == "Plan a Trip":
                         if place.get("rating"):
                             st.markdown(f"⭐ {place['rating']}")
 
-        # ----------- NEW: Suggested Hotels & Places from Itinerary -----------
         st.markdown("### Suggested Hotels & Places 🏨")
         locations = extract_locations_from_itinerary(it["itinerary_text"])
         loc_details = []
@@ -284,26 +256,20 @@ elif page == "Plan a Trip":
                         if loc.get("description"):
                             st.markdown(f"_{', '.join(loc['description'])}_")
 
-        # AI itinerary text below with day-wise separation
         st.markdown("### Trip Itinerary 📝")
         st.markdown(it["itinerary_text"])
 
-        # Save Itinerary Button
         if st.button("Save Itinerary", key="save_itinerary"):
             save_trip(it)
             st.success("Trip saved!")
-            # Force update of saved trips in session state
             st.session_state["saved_trips"] = load_saved_trips()
 
-# ----------------- SAVED TRIPS -----------------
 elif page == "Saved Trips":
 
     st.title("Saved Trips 💾")
-    # Use session state for instant update after saving
     trips = st.session_state.get("saved_trips", load_saved_trips())
     if trips:
         for t in reversed(trips):
-            # Better trip name: From, To, Days, Interests
             trip_name = f"{t.get('from', 'Unknown')} → {t.get('destination', 'Unknown')} | {t.get('days', '')} days | {', '.join(t.get('interests', []))}".replace('Unknown → Unknown |  days | ', 'Unnamed Trip')
             with st.expander(trip_name):
                 st.markdown(f"**From:** {t.get('from', '')}")

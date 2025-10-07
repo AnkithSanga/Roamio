@@ -13,7 +13,7 @@ TRIPS_FILE = "saved_trips.json"
 GEMINI_MODEL: Optional[genai.GenerativeModel] = None
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    GEMINI_MODEL = genai.GenerativeModel("gemini-1.5-flash")
+    GEMINI_MODEL = genai.GenerativeModel("gemini-2.0-flash")
 
 # ---------------- Utilities ---------------- #
 def ensure_saved_trips_file() -> None:
